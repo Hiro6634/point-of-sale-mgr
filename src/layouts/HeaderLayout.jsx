@@ -1,5 +1,6 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom'
 import { DB_ENV } from '../config/database'
+import { APP_VERSION, BUILD_COMMIT } from '../config/version'
 import { useAuth } from '../contexts/auth'
 
 export default function HeaderLayout() {
@@ -54,8 +55,9 @@ export default function HeaderLayout() {
         <Outlet />
       </main>
       <footer className="px-4 py-2 text-center text-xs text-neutral-400">
-        v{__APP_VERSION__} · {__BUILD_COMMIT__}
-        {DB_ENV === 'dev' ? ` · ${DB_ENV}` : null}
+        v{APP_VERSION}
+        {BUILD_COMMIT ? ` · ${BUILD_COMMIT}` : ''}
+        {DB_ENV === 'dev' ? ` · ${DB_ENV}` : ''}
       </footer>
     </div>
   )
