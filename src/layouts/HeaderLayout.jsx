@@ -13,12 +13,18 @@ export default function HeaderLayout() {
   return (
     <div className="flex min-h-svh flex-col">
       <header className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
-        <h1 className="text-2xl font-bold tracking-wide text-neutral-900">
+        <Link to="/" className="text-2xl font-bold tracking-wide text-neutral-900">
           AJB-POS
-        </h1>
+        </Link>
         <nav className="flex items-center gap-6">
           {currentUser ? (
             <>
+              <Link
+                to="/categories"
+                className="text-sm font-semibold uppercase tracking-wide text-neutral-900"
+              >
+                Categorías
+              </Link>
               <Link
                 to="/help"
                 className="text-sm font-semibold uppercase tracking-wide text-neutral-900"
@@ -46,6 +52,9 @@ export default function HeaderLayout() {
       <main className="flex flex-1 flex-col">
         <Outlet />
       </main>
+      <footer className="px-4 py-2 text-center text-xs text-neutral-400">
+        v{__APP_VERSION__} · {__BUILD_COMMIT__}
+      </footer>
     </div>
   )
 }
