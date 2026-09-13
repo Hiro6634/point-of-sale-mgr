@@ -1,9 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
-import { collection, doc, getDocs, setDoc } from 'firebase/firestore'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useBlocker } from 'react-router-dom'
+import {
+  collection,
+  doc,
+  getDocs,
+  setDoc,
+  writeBatch,
+} from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { dbCollectionPath } from '../config/database'
 
-const cellClass = 'p-2 text-neutral-700'
 const inputClass = 'w-full bg-transparent text-neutral-700 outline-none'
 
 const COLORS = [
@@ -59,8 +65,10 @@ function Toast({ toast }) {
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState([])
+  const [edits, setEdits] = useState({})
   const [form, setForm] = useState({ name: '', color: '', order: '' })
   const [saving, setSaving] = useState(false)
+  const [savingId, setSavingId] = useState(null)
   const [toast, setToast] = useState(null)
   const toastTimer = useRef(null)
 
@@ -70,13 +78,18 @@ export default function CategoriesPage() {
     getDocs(categoriesRef)
       .then((snapshot) => {
         if (!active) return
-        const items = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          name: doc.data().name,
-          color: doc.data().color,
-          order: doc.data().order,
+        const items = snapshot.docs.map((item) => ({
+          id: item.id,
+          name: item.data().name,
+          color: item.data().color,
+          order: item.data().order,
         }))
         setCategories(items)
+        setEdits(
+          Object.fromEntries(
+            items.map((item) => [item.id, { ...item, order: item.order ?? '' }]),
+          ),
+        )
       })
       .catch(() => {
         if (active) {
@@ -94,9 +107,54 @@ export default function CategoriesPage() {
     return () => clearTimeout(toastTimer.current)
   }, [toast])
 
+  const { isDirty, isRowDirty } = useMemo(() => {
+    const normalizeOrder = (value) =>
+      value === '' || value == null ? null : Number(value)
+    const isRowDirtyFn = (id) => {
+      const draft = edits[id]
+      if (!draft) return false
+      const saved = categories.find((category) => category.id === id)
+      if (!saved) return true
+      return (
+        draft.name.trim() !== saved.name ||
+        draft.color.trim() !== (saved.color ?? '') ||
+        normalizeOrder(draft.order) !== (saved.order ?? null)
+      )
+    }
+    const edited = categories.some((category) => isRowDirtyFn(category.id))
+    const newRow =
+      form.name.trim() !== '' || form.color !== '' || form.order !== ''
+    return { isDirty: edited || newRow, isRowDirty: isRowDirtyFn }
+  }, [categories, edits, form])
+
+  useEffect(() => {
+    if (!isDirty) return
+    const handler = (event) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty])
+
+  const blocker = useBlocker(isDirty)
+
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return
+    const leave = window.confirm(
+      'Tiene cambios sin guardar. ¿Desea salir sin guardarlos?',
+    )
+    if (leave) blocker.proceed()
+    else blocker.reset()
+  }, [blocker])
+
   const handleChange = (event) => {
     const { name, value } = event.target
     setForm((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleEditChange = (id, field, value) => {
+    setEdits((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }))
   }
 
   const handleSubmit = async (event) => {
@@ -123,12 +181,62 @@ export default function CategoriesPage() {
 
       await setDoc(doc(categoriesRef, name), { name, color, order })
       setCategories((prev) => [...prev, { id: name, name, color, order }])
+      setEdits((prev) => ({ ...prev, [name]: { name, color, order: order ?? '' } }))
       setForm({ name: '', color: '', order: '' })
       setToast({ type: 'success', message: 'Categoría agregada correctamente.' })
     } catch {
       setToast({ type: 'error', message: 'No se pudo guardar la categoría.' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSave = async (id) => {
+    const draft = edits[id]
+    const name = draft.name.trim()
+    if (!name) {
+      setToast({ type: 'error', message: 'El nombre de la categoría es obligatorio.' })
+      return
+    }
+    const color = draft.color.trim()
+    const order = draft.order === '' ? null : Number(draft.order)
+
+    if (
+      categories.some(
+        (category) => category.id !== id &&
+          category.name.toLowerCase() === name.toLowerCase(),
+      )
+    ) {
+      setToast({ type: 'error', message: 'Ya existe una categoría con ese nombre.' })
+      return
+    }
+
+    setSavingId(id)
+    try {
+      const categoriesRef = collection(db, dbCollectionPath('categories'))
+      if (name === id) {
+        await setDoc(doc(categoriesRef, id), { name, color, order })
+      } else {
+        const batch = writeBatch(db)
+        batch.delete(doc(categoriesRef, id))
+        batch.set(doc(categoriesRef, name), { name, color, order })
+        await batch.commit()
+      }
+      setCategories((prev) =>
+        prev
+          .filter((category) => category.id !== id)
+          .concat([{ id: name, name, color, order }]),
+      )
+      setEdits((prev) => {
+        const next = { ...prev }
+        delete next[id]
+        return { ...next, [name]: { name, color, order: order ?? '' } }
+      })
+      setToast({ type: 'success', message: 'Categoría actualizada correctamente.' })
+    } catch {
+      setToast({ type: 'error', message: 'No se pudo actualizar la categoría.' })
+    } finally {
+      setSavingId(null)
     }
   }
 
@@ -154,22 +262,72 @@ export default function CategoriesPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((category) => (
-              <tr
-                key={category.id}
-                className="border-b border-neutral-200"
-                style={
-                  colorBackground(category.color)
-                    ? { backgroundColor: colorBackground(category.color) }
-                    : undefined
-                }
-              >
-                <td className={cellClass}>{category.name}</td>
-                <td className={cellClass}>{category.color}</td>
-                <td className={cellClass}>{category.order}</td>
-                <td className={cellClass} />
-              </tr>
-            ))}
+            {rows.map((category) => {
+              const draft = edits[category.id] ?? category
+              const bg = colorBackground(draft.color)
+              return (
+                <tr
+                  key={category.id}
+                  className="border-b border-neutral-200"
+                  style={bg ? { backgroundColor: bg } : undefined}
+                >
+                  <td className="p-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={draft.name}
+                        onChange={(event) =>
+                          handleEditChange(category.id, 'name', event.target.value)
+                        }
+                        className={inputClass}
+                      />
+                      {isRowDirty(category.id) && (
+                        <span
+                          title="Cambios sin guardar"
+                          className="h-2 w-2 shrink-0 rounded-full bg-amber-500"
+                        />
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-2">
+                    <select
+                      value={draft.color}
+                      onChange={(event) =>
+                        handleEditChange(category.id, 'color', event.target.value)
+                      }
+                      className={inputClass}
+                    >
+                      <option value="">Sin color</option>
+                      {COLORS.map((color) => (
+                        <option key={color.name} value={color.name}>
+                          {color.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="p-2">
+                    <input
+                      type="number"
+                      value={draft.order}
+                      onChange={(event) =>
+                        handleEditChange(category.id, 'order', event.target.value)
+                      }
+                      className={inputClass}
+                    />
+                  </td>
+                  <td className="p-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSave(category.id)}
+                      disabled={savingId === category.id}
+                      aria-label="Guardar categoría"
+                      className="text-neutral-900 transition-colors hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {savingId === category.id ? '...' : <SaveIcon />}
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
             <tr
               className="border-b border-neutral-200"
               style={
