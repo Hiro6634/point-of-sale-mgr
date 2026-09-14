@@ -6,6 +6,7 @@ import {
   doc,
   getDocs,
   setDoc,
+  updateDoc,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { dbCollectionPath } from '../config/database'
@@ -109,6 +110,7 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false)
   const [savingId, setSavingId] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
+  const [togglingId, setTogglingId] = useState(null)
   const [toast, setToast] = useState(null)
   const [grouped, setGrouped] = useState(false)
   const toastTimer = useRef(null)
@@ -440,6 +442,43 @@ export default function ProductsPage() {
     }
   }
 
+  const handleToggleEnable = async (id, checked) => {
+    const prevEnable = edits[id]?.enable === true
+    setTogglingId(id)
+    setProducts((prev) =>
+      prev.map((product) =>
+        product.id === id ? { ...product, enable: checked } : product,
+      ),
+    )
+    setEdits((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], enable: checked },
+    }))
+    try {
+      const productsRef = collection(db, dbCollectionPath('products'))
+      await updateDoc(doc(productsRef, id), { enable: checked })
+      setToast({
+        type: 'success',
+        message: checked
+          ? 'Producto habilitado correctamente.'
+          : 'Producto deshabilitado correctamente.',
+      })
+    } catch {
+      setProducts((prev) =>
+        prev.map((product) =>
+          product.id === id ? { ...product, enable: prevEnable } : product,
+        ),
+      )
+      setEdits((prev) => ({
+        ...prev,
+        [id]: { ...prev[id], enable: prevEnable },
+      }))
+      setToast({ type: 'error', message: 'No se pudo actualizar el producto.' })
+    } finally {
+      setTogglingId(null)
+    }
+  }
+
   const handleDelete = async (id) => {
     if (
       !window.confirm(
@@ -558,8 +597,9 @@ export default function ProductsPage() {
           type="checkbox"
           checked={draft.enable === true}
           onChange={(event) =>
-            handleEditChange(id, 'enable', event.target.checked)
+            handleToggleEnable(id, event.target.checked)
           }
+          disabled={togglingId === id}
           className="h-4 w-4 accent-neutral-900"
         />
       </td>
