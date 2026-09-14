@@ -22,6 +22,12 @@ export default function HeaderLayout() {
           {currentUser ? (
             <>
               <Link
+                to="/products"
+                className="text-sm font-semibold uppercase tracking-wide text-neutral-900"
+              >
+                Productos
+              </Link>
+              <Link
                 to="/categories"
                 className="text-sm font-semibold uppercase tracking-wide text-neutral-900"
               >
