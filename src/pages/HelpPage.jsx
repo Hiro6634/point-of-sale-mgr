@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 export default function HelpPage() {
   return (
     <div className="max-w-xl p-6">
-      <h1 className="mb-4 text-2xl font-bold text-neutral-900">Punto de Venta</h1>
-      <ul className="list-disc space-y-2 pl-5 text-neutral-700">
+      <h1 className="mb-4 text-2xl font-bold text-neutral-900 dark:text-neutral-100">Punto de Venta</h1>
+      <ul className="list-disc space-y-2 pl-5 text-neutral-700 dark:text-neutral-300">
         <li>
           Tocando el ícono de arriba a la izquierda se retorna a la pantalla
           principal.
