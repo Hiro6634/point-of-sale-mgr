@@ -1,8 +1,8 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { Navigate, createBrowserRouter, RouterProvider } from 'react-router-dom'
 import AuthProvider from './contexts/AuthProvider'
+import ThemeProvider from './contexts/ThemeProvider'
 import HeaderLayout from './layouts/HeaderLayout'
 import LoginPage from './pages/LoginPage'
-import HomePage from './pages/HomePage'
 import HelpPage from './pages/HelpPage'
 import CategoriesPage from './pages/CategoriesPage'
 import ProductsPage from './pages/ProductsPage'
@@ -18,7 +18,7 @@ const router = createBrowserRouter([
         children: [
           {
             path: '/',
-            element: <HomePage />,
+            element: <ProductsPage />,
           },
           {
             path: '/help',
@@ -30,7 +30,7 @@ const router = createBrowserRouter([
           },
           {
             path: '/products',
-            element: <ProductsPage />,
+            element: <Navigate to="/" replace />,
           },
         ],
       },
@@ -40,9 +40,11 @@ const router = createBrowserRouter([
 
 function App() {
   return (
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 

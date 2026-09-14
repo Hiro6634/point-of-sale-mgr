@@ -2,10 +2,11 @@ import { useState } from 'react'
 
 const floatingLabelStyles = {
   input:
-    'h-14 w-full border-b border-neutral-400 bg-transparent text-lg text-neutral-900 outline-none transition-colors focus:border-neutral-900 focus:bg-neutral-900/[0.03]',
+    'h-14 w-full border-b border-neutral-400 bg-transparent text-lg text-neutral-900 outline-none transition-colors focus:border-neutral-900 focus:bg-neutral-900/[0.03] dark:border-neutral-600 dark:text-neutral-100 dark:focus:border-neutral-100 dark:focus:bg-neutral-100/10',
   label:
-    'pointer-events-none absolute left-0 top-4 text-lg text-neutral-500 transition-all duration-300 ease-in',
-  labelFloat: 'pointer-events-none absolute left-0 top-0 text-[11px] text-neutral-900',
+    'pointer-events-none absolute left-0 top-4 text-lg text-neutral-500 transition-all duration-300 ease-in dark:text-neutral-400',
+  labelFloat:
+    'pointer-events-none absolute left-0 top-0 text-[11px] text-neutral-900 dark:text-neutral-100',
 }
 
 export default function FloatingInput({
