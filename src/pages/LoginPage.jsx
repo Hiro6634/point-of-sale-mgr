@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/auth'
 import FloatingInput from '../components/FloatingInput'
 
 const buttonStyles = {
-  base: 'h-[50px] min-w-[165px] border-2 border-neutral-900 bg-neutral-900 px-4 text-sm font-bold uppercase tracking-wide text-white transition-all hover:bg-white hover:text-neutral-900',
+  base: 'h-[50px] min-w-[165px] border-2 border-neutral-900 bg-neutral-900 px-4 text-sm font-bold uppercase tracking-wide text-white transition-all hover:bg-white hover:text-neutral-900 dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-neutral-100',
 }
 
 const FIREBASE_ERRORS = {
@@ -49,7 +49,7 @@ export default function LoginPage() {
         className="flex w-[320px] flex-col items-stretch"
         noValidate
       >
-        <h2 className="mb-6 text-xl font-medium text-neutral-900">
+        <h2 className="mb-6 text-xl font-medium text-neutral-900 dark:text-neutral-100">
           Ingrese su email y password
         </h2>
         <FloatingInput
