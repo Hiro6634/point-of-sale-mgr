@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import HomePage from './pages/HomePage'
 import HelpPage from './pages/HelpPage'
 import CategoriesPage from './pages/CategoriesPage'
+import ProductsPage from './pages/ProductsPage'
 import ProtectedRoute from './routes/ProtectedRoute'
 
 const router = createBrowserRouter([
@@ -26,6 +27,10 @@ const router = createBrowserRouter([
           {
             path: '/categories',
             element: <CategoriesPage />,
+          },
+          {
+            path: '/products',
+            element: <ProductsPage />,
           },
         ],
       },
