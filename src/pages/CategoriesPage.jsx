@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useBlocker } from 'react-router-dom'
 import {
   collection,
-  deleteDoc,
   doc,
   getDocs,
   setDoc,
@@ -10,25 +9,11 @@ import {
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { dbCollectionPath } from '../config/database'
+import { COLORS, colorBackground } from '../config/colors'
+import { useTheme } from '../contexts/theme'
 
-const inputClass = 'w-full bg-transparent text-neutral-700 outline-none'
-
-const COLORS = [
-  { name: 'yellow', bg: '#fef08a' },
-  { name: 'green', bg: '#bbf7d0' },
-  { name: 'cyan', bg: '#a5f3fc' },
-  { name: 'blue', bg: '#bfdbfe' },
-  { name: 'purple', bg: '#ddd6fe' },
-  { name: 'pink', bg: '#fbcfe8' },
-  { name: 'orange', bg: '#fed7aa' },
-  { name: 'gray', bg: '#e5e7eb' },
-  { name: 'silver', bg: '#cbd5e1' },
-  { name: 'red', bg: '#fecaca' },
-  { name: 'white', bg: '#ffffff' },
-]
-
-const colorBackground = (name) =>
-  COLORS.find((color) => color.name === name)?.bg ?? ''
+const inputClass =
+  'w-full bg-transparent text-neutral-700 outline-none dark:text-neutral-100'
 
 function SaveIcon() {
   return (
@@ -86,6 +71,8 @@ function Toast({ toast }) {
 }
 
 export default function CategoriesPage() {
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const [categories, setCategories] = useState([])
   const [edits, setEdits] = useState({})
   const [form, setForm] = useState({ name: '', color: '', order: '' })
@@ -103,7 +90,7 @@ export default function CategoriesPage() {
         if (!active) return
         const items = snapshot.docs.map((item) => ({
           id: item.id,
-          name: item.data().name,
+          name: String(item.data().name ?? '').toUpperCase(),
           color: item.data().color,
           order: item.data().order,
         }))
@@ -173,11 +160,20 @@ export default function CategoriesPage() {
 
   const handleChange = (event) => {
     const { name, value } = event.target
-    setForm((prev) => ({ ...prev, [name]: value }))
+    setForm((prev) => ({
+      ...prev,
+      [name]: name === 'name' ? value.toUpperCase() : value,
+    }))
   }
 
   const handleEditChange = (id, field, value) => {
-    setEdits((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }))
+    setEdits((prev) => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        [field]: field === 'name' ? value.toUpperCase() : value,
+      },
+    }))
   }
 
   const handleSubmit = async (event) => {
@@ -189,7 +185,7 @@ export default function CategoriesPage() {
     setSaving(true)
     try {
       const categoriesRef = collection(db, dbCollectionPath('categories'))
-      const name = form.name.trim()
+      const name = form.name.trim().toUpperCase()
       const color = form.color.trim()
       const order = form.order === '' ? null : Number(form.order)
 
@@ -216,7 +212,7 @@ export default function CategoriesPage() {
 
   const handleSave = async (id) => {
     const draft = edits[id]
-    const name = draft.name.trim()
+    const name = draft.name.trim().toUpperCase()
     if (!name) {
       setToast({ type: 'error', message: 'El nombre de la categoría es obligatorio.' })
       return
@@ -239,11 +235,33 @@ export default function CategoriesPage() {
       const categoriesRef = collection(db, dbCollectionPath('categories'))
       if (name === id) {
         await setDoc(doc(categoriesRef, id), { name, color, order })
+        setToast({ type: 'success', message: 'Categoría actualizada correctamente.' })
       } else {
+        const productsRef = collection(db, dbCollectionPath('products'))
+        const productsSnapshot = await getDocs(productsRef)
+        const linkedProducts = productsSnapshot.docs.filter(
+          (item) =>
+            String(item.data().category ?? '').toLowerCase() ===
+            id.toLowerCase(),
+        )
         const batch = writeBatch(db)
         batch.delete(doc(categoriesRef, id))
         batch.set(doc(categoriesRef, name), { name, color, order })
+        linkedProducts.forEach((item) =>
+          batch.update(doc(productsRef, item.id), {
+            category: name.toUpperCase(),
+          }),
+        )
         await batch.commit()
+        setToast({
+          type: 'success',
+          message:
+            linkedProducts.length > 0
+              ? `Categoría renombrada. ${linkedProducts.length} producto${
+                  linkedProducts.length === 1 ? '' : 's'
+                } actualizado${linkedProducts.length === 1 ? '' : 's'}.`
+              : 'Categoría actualizada correctamente.',
+        })
       }
       setCategories((prev) =>
         prev
@@ -255,7 +273,6 @@ export default function CategoriesPage() {
         delete next[id]
         return { ...next, [name]: { name, color, order: order ?? '' } }
       })
-      setToast({ type: 'success', message: 'Categoría actualizada correctamente.' })
     } catch {
       setToast({ type: 'error', message: 'No se pudo actualizar la categoría.' })
     } finally {
@@ -273,15 +290,36 @@ export default function CategoriesPage() {
     }
     setDeletingId(id)
     try {
+      const name = edits[id]?.name?.trim() || id
       const categoriesRef = collection(db, dbCollectionPath('categories'))
-      await deleteDoc(doc(categoriesRef, id))
+      const productsRef = collection(db, dbCollectionPath('products'))
+      const productsSnapshot = await getDocs(productsRef)
+      const linkedProducts = productsSnapshot.docs.filter(
+        (item) =>
+          String(item.data().category ?? '').toLowerCase() ===
+          name.toLowerCase(),
+      )
+      const batch = writeBatch(db)
+      batch.delete(doc(categoriesRef, id))
+      linkedProducts.forEach((item) =>
+        batch.update(doc(productsRef, item.id), { category: '' }),
+      )
+      await batch.commit()
       setCategories((prev) => prev.filter((category) => category.id !== id))
       setEdits((prev) => {
         const next = { ...prev }
         delete next[id]
         return next
       })
-      setToast({ type: 'success', message: 'Categoría eliminada correctamente.' })
+      setToast({
+        type: 'success',
+        message:
+          linkedProducts.length > 0
+            ? `Categoría eliminada. ${linkedProducts.length} producto${
+                linkedProducts.length === 1 ? '' : 's'
+              } pasaron a SIN CATEGORÍA.`
+            : 'Categoría eliminada correctamente.',
+      })
     } catch {
       setToast({ type: 'error', message: 'No se pudo eliminar la categoría.' })
     } finally {
@@ -293,18 +331,18 @@ export default function CategoriesPage() {
 
   return (
     <div className="p-6">
-      <h1 className="mb-4 text-3xl font-bold text-neutral-900">Categorías</h1>
+      <h1 className="mb-4 text-3xl font-bold text-neutral-900 dark:text-neutral-100">Categorías</h1>
       <form onSubmit={handleSubmit}>
         <table className="w-full max-w-2xl border-collapse">
           <thead>
-            <tr className="border-b border-neutral-300 bg-neutral-100 text-left">
-              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900">
+            <tr className="border-b border-neutral-300 bg-neutral-100 text-left dark:border-neutral-700 dark:bg-neutral-800">
+              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900 dark:text-neutral-100">
                 Categoría
               </th>
-              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900">
+              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900 dark:text-neutral-100">
                 Color
               </th>
-              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900">
+              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900 dark:text-neutral-100">
                 Orden
               </th>
               <th className="p-2" />
@@ -313,11 +351,11 @@ export default function CategoriesPage() {
           <tbody>
             {rows.map((category) => {
               const draft = edits[category.id] ?? category
-              const bg = colorBackground(draft.color)
+              const bg = colorBackground(draft.color, isDark)
               return (
                 <tr
                   key={category.id}
-                  className="border-b border-neutral-200"
+                  className="border-b border-neutral-200 dark:border-neutral-700"
                   style={bg ? { backgroundColor: bg } : undefined}
                 >
                   <td className="p-2">
@@ -370,7 +408,7 @@ export default function CategoriesPage() {
                         onClick={() => handleSave(category.id)}
                         disabled={savingId === category.id || deletingId === category.id}
                         aria-label="Guardar categoría"
-                        className="text-neutral-900 transition-colors hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="text-neutral-900 transition-colors hover:text-green-600 dark:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {savingId === category.id ? '...' : <SaveIcon />}
                       </button>
@@ -379,7 +417,7 @@ export default function CategoriesPage() {
                         onClick={() => handleDelete(category.id)}
                         disabled={savingId === category.id || deletingId === category.id}
                         aria-label="Eliminar categoría"
-                        className="text-neutral-900 transition-colors hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="text-neutral-900 transition-colors hover:text-red-600 dark:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {deletingId === category.id ? '...' : <DeleteIcon />}
                       </button>
@@ -389,10 +427,10 @@ export default function CategoriesPage() {
               )
             })}
             <tr
-              className="border-b border-neutral-200"
+              className="border-b border-neutral-200 dark:border-neutral-700"
               style={
-                colorBackground(form.color)
-                  ? { backgroundColor: colorBackground(form.color) }
+                colorBackground(form.color, isDark)
+                  ? { backgroundColor: colorBackground(form.color, isDark) }
                   : undefined
               }
             >
@@ -435,7 +473,7 @@ export default function CategoriesPage() {
                   type="submit"
                   disabled={saving}
                   aria-label="Guardar categoría"
-                  className="text-neutral-900 transition-colors hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="text-neutral-900 transition-colors hover:text-green-600 dark:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {saving ? '...' : <SaveIcon />}
                 </button>
