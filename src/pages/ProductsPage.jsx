@@ -10,8 +10,14 @@ import {
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { dbCollectionPath } from '../config/database'
+import { colorBackground } from '../config/colors'
+import { useTheme } from '../contexts/theme'
 
-const inputClass = 'w-full bg-transparent text-neutral-700 outline-none'
+const inputClass =
+  'w-full bg-transparent text-neutral-700 outline-none dark:text-neutral-100'
+
+const inputAutoClass =
+  'bg-transparent text-neutral-700 outline-none dark:text-neutral-100'
 
 function SaveIcon() {
   return (
@@ -77,24 +83,9 @@ const isLowStock = (draft) => {
   return stock !== null && min !== null && stock <= min
 }
 
-const COLORS = [
-  { name: 'yellow', bg: '#fef08a' },
-  { name: 'green', bg: '#bbf7d0' },
-  { name: 'cyan', bg: '#a5f3fc' },
-  { name: 'blue', bg: '#bfdbfe' },
-  { name: 'purple', bg: '#ddd6fe' },
-  { name: 'pink', bg: '#fbcfe8' },
-  { name: 'orange', bg: '#fed7aa' },
-  { name: 'gray', bg: '#e5e7eb' },
-  { name: 'silver', bg: '#cbd5e1' },
-  { name: 'red', bg: '#fecaca' },
-  { name: 'white', bg: '#ffffff' },
-]
-
-const colorHex = (name) =>
-  COLORS.find((color) => color.name === name)?.bg ?? ''
-
 export default function ProductsPage() {
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [edits, setEdits] = useState({})
@@ -257,11 +248,11 @@ export default function ProductsPage() {
 
   const slugify = (name) => name.toLowerCase().replace(/\s+/g, '_')
 
-  const colorBackground = (category) => {
+  const rowBackground = (category, isDark) => {
     const match = categories.find(
       (item) => item.name === (category ?? '').trim().toUpperCase(),
     )
-    return match ? colorHex(match.color) : ''
+    return match ? colorBackground(match.color, isDark) : ''
   }
 
   const categoryOptions = (current) => {
@@ -276,7 +267,7 @@ export default function ProductsPage() {
     <select
       value={(value ?? '').toUpperCase()}
       onChange={(event) => onChange(event.target.value)}
-      className={inputClass}
+      className={inputAutoClass}
     >
       <option value="">Sin categoría</option>
       {categoryOptions(value).map((category) => (
@@ -527,7 +518,7 @@ export default function ProductsPage() {
             onChange={(event) =>
               handleEditChange(id, 'name', event.target.value.toUpperCase())
             }
-            className={inputClass}
+            className={inputAutoClass}
           />
           {isRowDirty(id) && (
             <span
@@ -585,9 +576,9 @@ export default function ProductsPage() {
           {isLowStock(draft) && (
             <span
               title="Stock menor o igual al mínimo"
-              className="font-bold text-red-600"
+              className="shrink-0 rounded bg-red-600 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white dark:bg-red-500/20 dark:text-red-300"
             >
-              !
+              Stock bajo
             </span>
           )}
         </div>
@@ -600,7 +591,7 @@ export default function ProductsPage() {
             handleToggleEnable(id, event.target.checked)
           }
           disabled={togglingId === id}
-          className="h-4 w-4 accent-neutral-900"
+          className="h-4 w-4 accent-neutral-900 dark:accent-neutral-100"
         />
       </td>
       <td className="p-2">
@@ -610,7 +601,7 @@ export default function ProductsPage() {
             onClick={() => handleSave(id)}
             disabled={savingId === id || deletingId === id}
             aria-label="Guardar producto"
-            className="text-neutral-900 transition-colors hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="text-neutral-900 transition-colors hover:text-green-600 dark:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {savingId === id ? '...' : <SaveIcon />}
           </button>
@@ -619,7 +610,7 @@ export default function ProductsPage() {
             onClick={() => handleDelete(id)}
             disabled={savingId === id || deletingId === id}
             aria-label="Eliminar producto"
-            className="text-neutral-900 transition-colors hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="text-neutral-900 transition-colors hover:text-red-600 dark:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {deletingId === id ? '...' : <DeleteIcon />}
           </button>
@@ -630,18 +621,22 @@ export default function ProductsPage() {
 
   return (
     <div className="p-6">
-      <h1 className="mb-4 text-3xl font-bold text-neutral-900">Productos</h1>
+      <h1 className="mb-4 text-3xl font-bold text-neutral-900 dark:text-neutral-100">Productos</h1>
       <form onSubmit={handleSubmit}>
-        <table className="w-full max-w-4xl border-collapse">
+        <div className="overflow-x-auto">
+        <table
+          className="w-full border-collapse"
+          style={{ tableLayout: 'auto' }}
+        >
           <thead>
-            <tr className="border-b border-neutral-300 bg-neutral-100 text-left">
+            <tr className="border-b border-neutral-300 bg-neutral-100 text-left dark:border-neutral-700 dark:bg-neutral-800">
               <th className="p-2 text-left">
                 <button
                   type="button"
                   onClick={() => setGrouped(false)}
                   title="Ordenar alfabéticamente por producto"
                   className={`text-sm font-semibold uppercase tracking-wide ${
-                    grouped ? 'text-neutral-900' : 'text-green-600'
+                    grouped ? 'text-neutral-900 dark:text-neutral-100' : 'text-green-600'
                   }`}
                 >
                   Producto
@@ -653,25 +648,25 @@ export default function ProductsPage() {
                   onClick={() => setGrouped((value) => !value)}
                   title="Agrupar por categoría"
                   className={`text-sm font-semibold uppercase tracking-wide ${
-                    grouped ? 'text-green-600' : 'text-neutral-900'
+                    grouped ? 'text-green-600' : 'text-neutral-900 dark:text-neutral-100'
                   }`}
                 >
                   Categoría{grouped ? ' ▾' : ''}
                 </button>
               </th>
-              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900">
+              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900 dark:text-neutral-100">
                 Precio
               </th>
-              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900">
+              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900 dark:text-neutral-100">
                 Stock Inicial
               </th>
-              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900">
+              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900 dark:text-neutral-100">
                 Stock Mínimo
               </th>
-              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900">
+              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900 dark:text-neutral-100">
                 Stock Actual
               </th>
-              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900">
+              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900 dark:text-neutral-100">
                 Habilitado
               </th>
               <th className="p-2" />
@@ -690,13 +685,18 @@ export default function ProductsPage() {
               }
               const lowStock = isLowStock(draft)
               const rowStyle = {}
-              const bg = colorBackground(draft.category)
+              const bg = rowBackground(draft.category, isDark)
               if (bg) rowStyle.backgroundColor = bg
-              if (lowStock) rowStyle.boxShadow = 'inset 0 0 0 2px #dc2626'
+              if (lowStock) {
+                rowStyle.boxShadow = isDark
+                  ? 'inset 0 0 0 2px #55555c'
+                  : 'inset 0 0 0 2px #dc2626'
+                rowStyle.outline = isDark ? '3px dashed #f87171' : undefined
+              }
               return (
                 <tr
                   key={product.id}
-                  className="border-b border-neutral-200"
+                  className="border-b border-neutral-200 dark:border-neutral-700"
                   style={rowStyle}
                 >
                   {editableRow(product.id, draft)}
@@ -704,10 +704,10 @@ export default function ProductsPage() {
               )
             })}
             <tr
-              className="border-b border-neutral-200"
+              className="border-b border-neutral-200 dark:border-neutral-700"
               style={
-                colorBackground(form.category)
-                  ? { backgroundColor: colorBackground(form.category) }
+                rowBackground(form.category, isDark)
+                  ? { backgroundColor: rowBackground(form.category, isDark) }
                   : undefined
               }
             >
@@ -717,7 +717,7 @@ export default function ProductsPage() {
                   value={form.name}
                   onChange={handleChange}
                   placeholder="Nuevo producto"
-                  className={inputClass}
+                  className={inputAutoClass}
                 />
               </td>
               <td className="p-2">
@@ -771,7 +771,7 @@ export default function ProductsPage() {
                   type="checkbox"
                   checked={form.enable === true}
                   onChange={handleChange}
-                  className="h-4 w-4 accent-neutral-900"
+                  className="h-4 w-4 accent-neutral-900 dark:accent-neutral-100"
                 />
               </td>
               <td className="p-2">
@@ -779,7 +779,7 @@ export default function ProductsPage() {
                   type="submit"
                   disabled={saving}
                   aria-label="Guardar producto"
-                  className="text-neutral-900 transition-colors hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="text-neutral-900 transition-colors hover:text-green-600 dark:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {saving ? '...' : <SaveIcon />}
                 </button>
@@ -787,6 +787,7 @@ export default function ProductsPage() {
             </tr>
           </tbody>
         </table>
+      </div>
       </form>
       <Toast toast={toast} />
     </div>
