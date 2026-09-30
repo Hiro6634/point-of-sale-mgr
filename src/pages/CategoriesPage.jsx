@@ -185,7 +185,11 @@ export default function CategoriesPage() {
     setSaving(true)
     try {
       const categoriesRef = collection(db, dbCollectionPath('categories'))
-      const name = form.name.trim().toUpperCase()
+      // El nombre es la clave del documento y tambien el campo: se guarda en
+      // minusculas por ser la forma canonica, y la pantalla lo muestra en
+      // mayusculas al leer. El chequeo de duplicados compara en minusculas, asi
+      // que da igual como este escrito el documento anterior.
+      const name = form.name.trim().toLowerCase()
       const color = form.color.trim()
       const order = form.order === '' ? null : Number(form.order)
 
@@ -212,7 +216,7 @@ export default function CategoriesPage() {
 
   const handleSave = async (id) => {
     const draft = edits[id]
-    const name = draft.name.trim().toUpperCase()
+    const name = draft.name.trim().toLowerCase()
     if (!name) {
       setToast({ type: 'error', message: 'El nombre de la categoría es obligatorio.' })
       return
@@ -233,7 +237,12 @@ export default function CategoriesPage() {
     setSavingId(id)
     try {
       const categoriesRef = collection(db, dbCollectionPath('categories'))
-      if (name === id) {
+      // Case-insensitive a proposito: name viene en minusculas y el id del
+      // documento puede seguir en mayusculas. Comparar con === las daria
+      // distintas siempre y entraria al camino de renombrar, que borra el
+      // documento y recategoriza todos los productos, cada vez que el usuario
+      // solo cambia un color.
+      if (name === id.toLowerCase()) {
         await setDoc(doc(categoriesRef, id), { name, color, order })
         setToast({ type: 'success', message: 'Categoría actualizada correctamente.' })
       } else {
@@ -249,7 +258,7 @@ export default function CategoriesPage() {
         batch.set(doc(categoriesRef, name), { name, color, order })
         linkedProducts.forEach((item) =>
           batch.update(doc(productsRef, item.id), {
-            category: name.toUpperCase(),
+            category: name,
           }),
         )
         await batch.commit()

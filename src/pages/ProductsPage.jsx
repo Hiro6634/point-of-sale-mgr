@@ -271,8 +271,12 @@ export default function ProductsPage() {
     setSaving(true)
     try {
       const productsRef = collection(db, dbCollectionPath('products'))
-      const name = form.name.trim().toUpperCase()
-      const category = form.category.trim().toUpperCase()
+      // Se guardan en minusculas a proposito: es la forma canonica del dato, la que
+      // se consulta, ordena y deduplica. Las mayusculas son solo presentacion y
+      // las aplica la pantalla al leer. El input uppercasa mientras se escribe
+      // (handleChange), asi que el operador nunca ve minusculas.
+      const name = form.name.trim().toLowerCase()
+      const category = form.category.trim().toLowerCase()
       const price = Number(form.price)
       const stockInitial = form.stockInitial === '' ? null : Number(form.stockInitial)
       const minStock = form.minStock === '' ? null : Number(form.minStock)
@@ -337,7 +341,9 @@ export default function ProductsPage() {
 
   const handleSave = async (id) => {
     const draft = edits[id]
-    const name = draft.name.trim().toUpperCase()
+    // Ver handleSubmit: el dato se guarda en minusculas y la pantalla lo muestra
+    // en mayusculas.
+    const name = draft.name.trim().toLowerCase()
     if (!name) {
       setToast({ type: 'error', message: 'El nombre del producto es obligatorio.' })
       return
@@ -346,7 +352,7 @@ export default function ProductsPage() {
       setToast({ type: 'error', message: 'El precio es obligatorio.' })
       return
     }
-    const category = draft.category.trim().toUpperCase()
+    const category = draft.category.trim().toLowerCase()
     const price = Number(draft.price)
     const stockInitial = draft.stockInitial === '' ? null : Number(draft.stockInitial)
     const minStock = draft.minStock === '' ? null : Number(draft.minStock)
