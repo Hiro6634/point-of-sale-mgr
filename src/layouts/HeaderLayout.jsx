@@ -79,6 +79,12 @@ export default function HeaderLayout() {
                 Productos
               </Link>
               <Link
+                to="/stock"
+                className="text-sm font-semibold uppercase tracking-wide text-neutral-900 dark:text-neutral-100"
+              >
+                Stock
+              </Link>
+              <Link
                 to="/categories"
                 className="text-sm font-semibold uppercase tracking-wide text-neutral-900 dark:text-neutral-100"
               >

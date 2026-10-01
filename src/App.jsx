@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage'
 import HelpPage from './pages/HelpPage'
 import CategoriesPage from './pages/CategoriesPage'
 import ProductsPage from './pages/ProductsPage'
+import StockPage from './pages/StockPage'
 import ProtectedRoute from './routes/ProtectedRoute'
 
 const router = createBrowserRouter([
@@ -19,6 +20,14 @@ const router = createBrowserRouter([
           {
             path: '/',
             element: <ProductsPage />,
+          },
+          {
+            // Stock va aparte de Productos a proposito: esta pagina se
+            // suscribe a Firestore y se actualiza sola con cada venta, y eso
+            // solo es seguro si no hay campos de texto que un snapshot pueda
+            // pisar mientras el operador escribe.
+            path: '/stock',
+            element: <StockPage />,
           },
           {
             path: '/help',
