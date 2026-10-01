@@ -11,7 +11,9 @@ import {
 import { db } from '../config/firebase'
 import { dbCollectionPath } from '../config/database'
 import { colorBackground } from '../config/colors'
+import Toast from '../components/Toast'
 import { useTheme } from '../contexts/theme'
+import { normalizeNumber } from '../lib/productFormat'
 
 const inputClass =
   'w-full bg-transparent text-neutral-700 outline-none dark:text-neutral-100'
@@ -58,29 +60,6 @@ function DeleteIcon() {
       <line x1="14" y1="11" x2="14" y2="17" />
     </svg>
   )
-}
-
-function Toast({ toast }) {
-  if (!toast) return null
-  const isSuccess = toast.type === 'success'
-  return (
-    <div
-      className={`fixed bottom-16 left-1/2 z-50 -translate-x-1/2 rounded-md px-4 py-2 text-sm font-medium text-white shadow-lg ${
-        isSuccess ? 'bg-green-600' : 'bg-red-600'
-      }`}
-    >
-      {toast.message}
-    </div>
-  )
-}
-
-const normalizeNumber = (value) =>
-  value === '' || value == null ? null : Number(value)
-
-const isLowStock = (draft) => {
-  const stock = normalizeNumber(draft?.stock)
-  const min = normalizeNumber(draft?.minStock)
-  return stock !== null && min !== null && stock <= min
 }
 
 export default function ProductsPage() {
@@ -178,7 +157,9 @@ export default function ProductsPage() {
   }, [])
 
   useEffect(() => {
-    if (!toast) return
+    // Los errores quedan hasta que se los clickee: se van a leer cuando se los
+    // clickee el operador, no a los 3,5 segundos.
+    if (!toast || toast.type !== 'success') return
     toastTimer.current = setTimeout(() => setToast(null), 3500)
     return () => clearTimeout(toastTimer.current)
   }, [toast])
@@ -196,7 +177,6 @@ export default function ProductsPage() {
         normalizeNumber(draft.stockInitial) !==
           normalizeNumber(saved.stockInitial) ||
         normalizeNumber(draft.minStock) !== normalizeNumber(saved.minStock) ||
-        normalizeNumber(draft.stock) !== normalizeNumber(saved.stock) ||
         draft.enable !== saved.enable
       )
     }
@@ -291,8 +271,12 @@ export default function ProductsPage() {
     setSaving(true)
     try {
       const productsRef = collection(db, dbCollectionPath('products'))
-      const name = form.name.trim().toUpperCase()
-      const category = form.category.trim().toUpperCase()
+      // Se guardan en minusculas a proposito: es la forma canonica del dato, la que
+      // se consulta, ordena y deduplica. Las mayusculas son solo presentacion y
+      // las aplica la pantalla al leer. El input uppercasa mientras se escribe
+      // (handleChange), asi que el operador nunca ve minusculas.
+      const name = form.name.trim().toLowerCase()
+      const category = form.category.trim().toLowerCase()
       const price = Number(form.price)
       const stockInitial = form.stockInitial === '' ? null : Number(form.stockInitial)
       const minStock = form.minStock === '' ? null : Number(form.minStock)
@@ -357,7 +341,9 @@ export default function ProductsPage() {
 
   const handleSave = async (id) => {
     const draft = edits[id]
-    const name = draft.name.trim().toUpperCase()
+    // Ver handleSubmit: el dato se guarda en minusculas y la pantalla lo muestra
+    // en mayusculas.
+    const name = draft.name.trim().toLowerCase()
     if (!name) {
       setToast({ type: 'error', message: 'El nombre del producto es obligatorio.' })
       return
@@ -366,11 +352,10 @@ export default function ProductsPage() {
       setToast({ type: 'error', message: 'El precio es obligatorio.' })
       return
     }
-    const category = draft.category.trim().toUpperCase()
+    const category = draft.category.trim().toLowerCase()
     const price = Number(draft.price)
     const stockInitial = draft.stockInitial === '' ? null : Number(draft.stockInitial)
     const minStock = draft.minStock === '' ? null : Number(draft.minStock)
-    const stock = draft.stock === '' ? null : Number(draft.stock)
     const enable = draft.enable === true
 
     if (
@@ -384,19 +369,35 @@ export default function ProductsPage() {
       return
     }
 
+    // El stock vigente, no el del borrador: en cuanto una caja veto algo
+    // el borrador quedo viejo, y dejarlo en el estado local lo volveria a
+    // mandar en el proximo guardado.
+    const liveStock = products.find((product) => product.id === id)?.stock ?? ''
+
     setSavingId(id)
     try {
       const productsRef = collection(db, dbCollectionPath('products'))
-      await setDoc(doc(productsRef, id), {
-        id,
-        name,
-        category,
-        price,
-        stockInitial,
-        minStock,
-        stock,
-        enable,
-      })
+      // El stock no se escribe al editar: lo mueven las cajas con increment()
+      // al vender y esta pantalla solo lo monitorea. Mandar aca el valor del
+      // borrador pisaria en silencio todas las ventas que ocurrieron desde que
+      // se cargo la pagina.
+      //
+      // merge: true es obligatorio: setDoc sin merge reemplaza el documento
+      // entero, asi que sin el, y con el stock fuera del payload, el campo
+      // "stock" quedaria sin valor en vez de conservarse.
+      await setDoc(
+        doc(productsRef, id),
+        {
+          id,
+          name,
+          category,
+          price,
+          stockInitial,
+          minStock,
+          enable,
+        },
+        { merge: true },
+      )
       setProducts((prev) =>
         prev.map((product) =>
           product.id === id
@@ -407,7 +408,7 @@ export default function ProductsPage() {
                 price: String(price),
                 stockInitial: stockInitial === null ? '' : String(stockInitial),
                 minStock: minStock === null ? '' : String(minStock),
-                stock: stock === null ? '' : String(stock),
+                stock: liveStock,
                 enable,
               }
             : product,
@@ -421,7 +422,7 @@ export default function ProductsPage() {
           price: String(price),
           stockInitial: stockInitial === null ? '' : String(stockInitial),
           minStock: minStock === null ? '' : String(minStock),
-          stock: stock === null ? '' : String(stock),
+          stock: liveStock,
           enable,
         },
       }))
@@ -564,26 +565,6 @@ export default function ProductsPage() {
         />
       </td>
       <td className="p-2">
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            value={draft.stock}
-            onChange={(event) =>
-              handleEditChange(id, 'stock', event.target.value)
-            }
-            className={inputClass}
-          />
-          {isLowStock(draft) && (
-            <span
-              title="Stock menor o igual al mínimo"
-              className="shrink-0 rounded bg-red-600 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white dark:bg-red-500/20 dark:text-red-300"
-            >
-              Stock bajo
-            </span>
-          )}
-        </div>
-      </td>
-      <td className="p-2">
         <input
           type="checkbox"
           checked={draft.enable === true}
@@ -664,9 +645,6 @@ export default function ProductsPage() {
                 Stock Mínimo
               </th>
               <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900 dark:text-neutral-100">
-                Stock Actual
-              </th>
-              <th className="p-2 text-sm font-semibold uppercase tracking-wide text-neutral-900 dark:text-neutral-100">
                 Habilitado
               </th>
               <th className="p-2" />
@@ -680,19 +658,15 @@ export default function ProductsPage() {
                 price: product.price,
                 stockInitial: product.stockInitial,
                 minStock: product.minStock,
-                stock: product.stock,
                 enable: product.enable,
               }
-              const lowStock = isLowStock(draft)
+              // El contorno de stock bajo se fue con la columna: esta pagina
+              // carga una sola vez con getDocs, asi que el numero seria el de
+              // cuando se abrio la pantalla. La pagina de Stock es la que
+              // muestra el stock real, y ese lo tiene atualizado.
               const rowStyle = {}
               const bg = rowBackground(draft.category, isDark)
               if (bg) rowStyle.backgroundColor = bg
-              if (lowStock) {
-                rowStyle.boxShadow = isDark
-                  ? 'inset 0 0 0 2px #55555c'
-                  : 'inset 0 0 0 2px #dc2626'
-                rowStyle.outline = isDark ? '3px dashed #f87171' : undefined
-              }
               return (
                 <tr
                   key={product.id}
@@ -789,7 +763,7 @@ export default function ProductsPage() {
         </table>
       </div>
       </form>
-      <Toast toast={toast} />
+      <Toast toast={toast} onDismiss={() => setToast(null)} />
     </div>
   )
 }
