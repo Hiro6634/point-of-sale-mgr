@@ -5,6 +5,7 @@ import HeaderLayout from './layouts/HeaderLayout'
 import LoginPage from './pages/LoginPage'
 import HelpPage from './pages/HelpPage'
 import CategoriesPage from './pages/CategoriesPage'
+import LocalesPage from './pages/LocalesPage'
 import ProductsPage from './pages/ProductsPage'
 import StockPage from './pages/StockPage'
 import ProtectedRoute from './routes/ProtectedRoute'
@@ -36,6 +37,10 @@ const router = createBrowserRouter([
           {
             path: '/categories',
             element: <CategoriesPage />,
+          },
+          {
+            path: '/locales',
+            element: <LocalesPage />,
           },
           {
             path: '/products',
