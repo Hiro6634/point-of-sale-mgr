@@ -91,6 +91,12 @@ export default function HeaderLayout() {
                 Categorías
               </Link>
               <Link
+                to="/locales"
+                className="text-sm font-semibold uppercase tracking-wide text-neutral-900 dark:text-neutral-100"
+              >
+                Locales
+              </Link>
+              <Link
                 to="/help"
                 className="text-sm font-semibold uppercase tracking-wide text-neutral-900 dark:text-neutral-100"
               >
